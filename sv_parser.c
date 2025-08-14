@@ -140,6 +140,27 @@ int parse_SV_ASDU(const uint8_t *rawData, int rawDataLength, struct SV_ASDU *asd
         return 0;
 }
 
+int parse_BER_length(const uint8_t *payload, int *cursor, uint32_t *length)
+{
+    uint8_t first_byte = payload[*cursor];
+    (*cursor)++;
+    
+    if (first_byte & 0x80) {  // Long form
+        int num_octets = first_byte & 0x7F;
+        if (num_octets > 4) return BAD_FORMAT;  // Protection overflow
+        
+        *length = 0;
+        for (int i = 0; i < num_octets; i++) {
+            *length = (*length << 8) | payload[*cursor];
+            (*cursor)++;
+        }
+    } else {  // Short form
+        *length = first_byte;
+    }
+    
+    return 0;
+}
+
 /**
  * \brief Parse raw data from payload part to an SV structure.
  *
@@ -152,7 +173,7 @@ int parse_SV_payload(const uint8_t *payload, struct SV_payload *sv)
 {
         int cursor;
         uint8_t tag;
-        uint8_t length;
+        uint32_t length;
         int asdu_idx = 0;
 
         // fixed values at the beginning of the payload
@@ -160,32 +181,37 @@ int parse_SV_payload(const uint8_t *payload, struct SV_payload *sv)
         sv->length = payload[2] << 8 | payload[3];
 
         cursor = 8; // 4 previous bytes are reserved
-        while(cursor < sv->length) {
-                tag = payload[cursor];
-                length = payload[cursor+1];
-                switch(tag) {
-                case 0x60: // savPDU
-                        cursor += 2;
-                        break;
-                case 0x80: // noASDU
-                        sv->noASDU = payload[cursor+2];
-                        cursor += length + 2;
-                        break;
-                case 0xa2: // seqASDU
-                        cursor += 2;
-                        break;
-                case 0x30: // ASDU
-                        // 8 ASDU maximum in the standard
-                        if (unlikely(asdu_idx >= 8)) return BAD_FORMAT;
-                        parse_SV_ASDU(&payload[cursor+2],
-                                      length,
-                                      &sv->seqASDU[asdu_idx]);
-                        asdu_idx++;
-                        cursor += length + 2;
-                        break;
-                default:
-                        return BAD_FORMAT;
-                }
+    while(cursor < sv->length) {
+        tag = payload[cursor];
+        cursor++;
+        
+        if (parse_BER_length(payload, &cursor, &length) != 0) {
+            return BAD_FORMAT;
         }
+        
+        switch(tag) {
+        case 0x60: // savPDU
+            // Nothing, just continue
+            break;
+        case 0x80: // noASDU
+            sv->noASDU = payload[cursor];
+            cursor += length;
+            break;
+        case 0xa2: // seqASDU
+            // Nothing, just continue
+            break;
+        case 0x30: // ASDU
+            // 8 ASDU maximum in the standard
+            if (unlikely(asdu_idx >= 8)) return BAD_FORMAT;
+            parse_SV_ASDU(&payload[cursor],
+                          length,
+                          &sv->seqASDU[asdu_idx]);
+            asdu_idx++;
+            cursor += length;
+            break;
+        default:
+            return BAD_FORMAT;
+        }
+    }
         return 0;
 }

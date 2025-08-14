@@ -189,27 +189,27 @@ int parse_SV_payload(const uint8_t *payload, struct SV_payload *sv)
                 }
         
                 switch(tag) {
-                        case 0x60: // savPDU
-                                // Nothing, just continue
-                                break;
-                        case 0x80: // noASDU
-                                sv->noASDU = payload[cursor];
-                                cursor += length;
-                                break;
-                        case 0xa2: // seqASDU
-                                // Nothing, just continue
-                                break;
-                        case 0x30: // ASDU
-                                // 8 ASDU maximum in the standard
-                                if (unlikely(asdu_idx >= 8)) return BAD_FORMAT;
-                                parse_SV_ASDU(&payload[cursor],
-                                        length,
-                                        &sv->seqASDU[asdu_idx]);
-                                asdu_idx++;
-                                cursor += length;
-                                break;
-                        default:
-                                return BAD_FORMAT;
+                case 0x60: // savPDU
+                        // Nothing, just continue
+                        break;
+                case 0x80: // noASDU
+                        sv->noASDU = payload[cursor];
+                        cursor += length;
+                        break;
+                case 0xa2: // seqASDU
+                        // Nothing, just continue
+                        break;
+                case 0x30: // ASDU
+                        // 8 ASDU maximum in the standard
+                        if (unlikely(asdu_idx >= 8)) return BAD_FORMAT;
+                        parse_SV_ASDU(&payload[cursor],
+                                length,
+                                &sv->seqASDU[asdu_idx]);
+                        asdu_idx++;
+                        cursor += length;
+                        break;
+                default:
+                        return BAD_FORMAT;
                 }
         }
         return 0;

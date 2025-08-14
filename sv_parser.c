@@ -203,8 +203,8 @@ int parse_SV_payload(const uint8_t *payload, struct SV_payload *sv)
                         // 8 ASDU maximum in the standard
                         if (unlikely(asdu_idx >= 8)) return BAD_FORMAT;
                         parse_SV_ASDU(&payload[cursor],
-                                length,
-                                &sv->seqASDU[asdu_idx]);
+                                      length,
+                                      &sv->seqASDU[asdu_idx]);
                         asdu_idx++;
                         cursor += length;
                         break;
